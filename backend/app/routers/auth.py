@@ -80,3 +80,18 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)):
         role=user.role,
         class_name=user.class_name,
     )
+
+
+from app.core.auth import get_current_user
+
+
+@router.get("/me", response_model=UserResponse)
+async def me(current_user: User = Depends(get_current_user)):
+    return UserResponse(
+        id=str(current_user.id),
+        username=current_user.username,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        class_name=current_user.class_name,
+    )
