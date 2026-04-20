@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.services.challenge_loader import sync_challenges
-from app.routers import auth
+from app.routers import auth, challenges
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -16,7 +16,6 @@ CHALLENGES_DIR = Path(__file__).resolve().parents[2] / "challenges"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info(f"Scanning challenges at: {CHALLENGES_DIR}")
     if CHALLENGES_DIR.exists():
         async with AsyncSessionLocal() as db:
@@ -25,7 +24,6 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning(f"Challenges directory not found: {CHALLENGES_DIR}")
     yield
-    # Shutdown (nothing to clean up yet)
 
 
 app = FastAPI(
@@ -46,6 +44,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(challenges.router)
 
 
 @app.get("/api/health")
