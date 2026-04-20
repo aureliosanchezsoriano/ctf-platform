@@ -1,0 +1,28 @@
+id: web-sqli-01
+name: "Login with SQL Injection"
+type: docker
+category: web
+owasp: A03
+difficulty: easy
+points: 100
+required: true
+
+description: |
+  A login form is protecting the admin panel.
+  Something smells off about how it validates credentials.
+  Can you get in without knowing the password?
+
+flag_type: dynamic
+
+docker:
+  image: ctf/web-sqli-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "Try entering a single quote in the username field."
+  - cost: 50
+    text: "The query looks something like: SELECT * FROM users WHERE username='INPUT'"

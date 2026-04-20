@@ -1,9 +1,32 @@
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
+from app.core.database import AsyncSessionLocal
+from app.services.challenge_loader import sync_challenges
 from app.routers import auth
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
+CHALLENGES_DIR = Path(__file__).resolve().parents[2] / "challenges"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info(f"Scanning challenges at: {CHALLENGES_DIR}")
+    if CHALLENGES_DIR.exists():
+        async with AsyncSessionLocal() as db:
+            count = await sync_challenges(db, CHALLENGES_DIR)
+            logger.info(f"Synced {count} challenges from disk")
+    else:
+        logger.warning(f"Challenges directory not found: {CHALLENGES_DIR}")
+    yield
+    # Shutdown (nothing to clean up yet)
+
 
 app = FastAPI(
     title="CTF Platform",
@@ -11,6 +34,7 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
