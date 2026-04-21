@@ -1,27 +1,27 @@
 import logging
-from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.core.auth import get_current_user, get_current_teacher
 from app.core.security import generate_flag, verify_flag
+from app.core.limiter import check_rate_limit
 from app.models.user import User
-from app.models.challenge import Challenge, ChallengeType
+from app.models.challenge import Challenge
 from app.models.attempt import Attempt
+from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/challenges", tags=["challenges"])
 
+# Rate limit: 10 submissions per challenge per user per 60 seconds
+FLAG_RATE_LIMIT = 10
+FLAG_RATE_WINDOW = 60
+
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
-
-class HintResponse(BaseModel):
-    index: int
-    cost: int
-    text: str
-
 
 class ChallengeResponse(BaseModel):
     id: str
@@ -39,7 +39,7 @@ class ChallengeResponse(BaseModel):
     unlocks_after: str | None
     solved: bool = False
     attempts_count: int = 0
-    locked: bool = False    # True if prerequisite not met
+    locked: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -56,8 +56,7 @@ class FlagResult(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-async def get_solved_slugs(user_id: UUID, db: AsyncSession) -> set[str]:
-    """Return the set of challenge slugs solved by this user."""
+async def get_solved_slugs(user_id, db: AsyncSession) -> set[str]:
     result = await db.execute(
         select(Challenge.slug)
         .join(Attempt, Attempt.challenge_id == Challenge.id)
@@ -76,10 +75,8 @@ async def build_response(
         challenge.unlocks_after
         and challenge.unlocks_after not in solved_slugs
     )
-    # Hide hint text for locked hints (cost > 0) unless already solved
-    hints = []
-    for i, h in enumerate(challenge.hints or []):
-        hints.append({"index": i, "cost": h["cost"], "text": h["text"]})
+    hints = [{"index": i, "cost": h["cost"], "text": h["text"]}
+             for i, h in enumerate(challenge.hints or [])]
 
     return ChallengeResponse(
         id=str(challenge.id),
@@ -108,7 +105,6 @@ async def list_challenges(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all active challenges with solved/locked status for the current user."""
     result = await db.execute(
         select(Challenge)
         .where(Challenge.is_active == True)
@@ -118,7 +114,6 @@ async def list_challenges(
 
     solved_slugs = await get_solved_slugs(current_user.id, db)
 
-    # Count attempts per challenge for this user in one query
     counts_result = await db.execute(
         select(Challenge.slug, func.count(Attempt.id))
         .join(Attempt, Attempt.challenge_id == Challenge.id)
@@ -147,7 +142,17 @@ async def get_challenge(
         raise HTTPException(status_code=404, detail="Challenge not found")
 
     solved_slugs = await get_solved_slugs(current_user.id, db)
-    return await build_response(challenge, solved_slugs, {})
+
+    # Count attempts for this specific challenge
+    count_result = await db.execute(
+        select(func.count(Attempt.id)).where(
+            Attempt.user_id == current_user.id,
+            Attempt.challenge_id == challenge.id,
+        )
+    )
+    count = count_result.scalar() or 0
+
+    return await build_response(challenge, solved_slugs, {challenge.slug: count})
 
 
 @router.post("/{slug}/submit", response_model=FlagResult)
@@ -156,7 +161,12 @@ async def submit_flag(
     payload: FlagSubmission,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
+    # Rate limit check — before any DB query
+    rate_key = f"flag_submit:{current_user.id}:{slug}"
+    await check_rate_limit(redis, rate_key, FLAG_RATE_LIMIT, FLAG_RATE_WINDOW)
+
     result = await db.execute(
         select(Challenge).where(Challenge.slug == slug, Challenge.is_active == True)
     )
@@ -181,7 +191,7 @@ async def submit_flag(
     else:
         correct = payload.flag.strip() == (challenge.flag_value or "").strip()
 
-    # Record the attempt
+    # Record attempt
     attempt = Attempt(
         user_id=current_user.id,
         challenge_id=challenge.id,
@@ -193,14 +203,10 @@ async def submit_flag(
 
     if correct:
         logger.info(f"Flag correct: user={current_user.username} challenge={slug}")
-        return FlagResult(
-            correct=True,
-            message="Correct! Flag accepted.",
-            points_earned=challenge.points,
-        )
-    else:
-        logger.info(f"Flag wrong: user={current_user.username} challenge={slug}")
-        return FlagResult(correct=False, message="Incorrect flag, try again.")
+        return FlagResult(correct=True, message="Correct! Flag accepted.", points_earned=challenge.points)
+
+    logger.info(f"Flag wrong: user={current_user.username} challenge={slug}")
+    return FlagResult(correct=False, message="Incorrect flag, try again.")
 
 
 # ── Teacher routes ────────────────────────────────────────────────────────────
