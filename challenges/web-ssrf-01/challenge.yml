@@ -1,0 +1,32 @@
+id: web-ssrf-01
+name: "SSRF — Access the internal API"
+type: docker
+category: web
+owasp: A10
+difficulty: medium
+points: 250
+required: true
+
+description: |
+  A web app fetches URLs on your behalf and displays the result.
+  There is an internal API running on the same server that is not
+  accessible from the outside — only from localhost.
+  The internal API exposes the flag at http://localhost:8080/secret.
+  Make the server fetch it for you.
+
+flag_type: dynamic
+
+docker:
+  image: ctf/web-ssrf-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "The fetch feature makes the server send HTTP requests. What happens if you give it an internal URL?"
+  - cost: 60
+    text: "Internal services are often accessible via http://localhost or http://127.0.0.1"
+  - cost: 80
+    text: "The internal API runs on port 8080. Try fetching http://localhost:8080/secret"
