@@ -1,0 +1,31 @@
+id: web-jwt-01
+name: "JWT — Escalate to admin"
+type: docker
+category: web
+owasp: A07
+difficulty: medium
+points: 200
+required: true
+
+description: |
+  A web app uses JWT for authentication. You have valid credentials for a low-privilege account.
+  Login as guest / guest123 and inspect your token.
+  The admin panel is locked to users with role=admin.
+  Find a way to forge a token that grants you admin access.
+
+flag_type: dynamic
+
+docker:
+  image: ctf/web-jwt-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "Decode your JWT at jwt.io — what algorithm is being used?"
+  - cost: 60
+    text: "Some JWT libraries accept 'none' as a valid algorithm, skipping signature verification entirely."
+  - cost: 80
+    text: "A JWT has three base64url-encoded parts separated by dots. Try setting alg=none in the header and role=admin in the payload, with an empty signature."
