@@ -1,0 +1,30 @@
+id: web-xss-01
+name: "XSS — Steal the admin cookie"
+type: docker
+category: web
+owasp: A03
+difficulty: easy
+points: 150
+required: true
+
+description: |
+  A search feature reflects your input directly into the page without sanitization.
+  The admin bot visits the search page every 10 seconds with an active session cookie.
+  Inject a script that exfiltrates the cookie to your listener and find the flag hidden inside it.
+
+flag_type: dynamic
+
+docker:
+  image: ctf/web-xss-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "Try searching for <script>alert(1)</script> first to confirm the vulnerability."
+  - cost: 50
+    text: "The flag is inside the admin's session cookie. Use document.cookie to read it."
+  - cost: 75
+    text: "You need a listener to receive the stolen cookie. There is one built into the app at /collect?data=YOUR_DATA"
