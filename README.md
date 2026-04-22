@@ -203,24 +203,6 @@ Interactive API docs available at `http://localhost:8000/api/docs` when running 
 | GET | `/api/admin/export/results` | Teacher | Export results as Excel |
 | DELETE | `/api/admin/containers/all` | Teacher | Emergency stop all containers |
 
-## Pedagogical framework
-
-The platform is grounded in three evidence-based pedagogical approaches:
-
-**Challenge-Based Learning (CBL)** — students encounter real security problems in a safe environment, applying knowledge to solve concrete tasks with immediate feedback.
-
-**Gamification** — points, rankings, difficulty progression, and hint mechanics increase motivation and engagement without trivialising the learning content.
-
-**Learning Analytics** — the teacher dashboard provides real-time visibility into student progress, enabling timely intervention and differentiated instruction.
-
-The OWASP Top 10 framing provides curriculum alignment with industry standards, making the content directly relevant to professional practice in network systems administration.
-
-## Project context
-
-This platform was developed as a TFM for the **Máster en Formación del Profesorado de Educación Secundaria** (speciality: Technology and Informatics), contextualised within the **Ciclo Superior de ASIR** curriculum, specifically the **Seguridad y Alta Disponibilidad** module.
-
-The design prioritises two goals simultaneously: demonstrating educational innovation (for the academic tribunal) and building genuine technical depth in offensive security and DevSecOps (for professional development toward penetration testing and vulnerability research).
-
 ## License
 
 MIT
