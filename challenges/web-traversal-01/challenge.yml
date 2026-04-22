@@ -1,0 +1,31 @@
+id: web-traversal-01
+name: "Path Traversal — Read /flag.txt"
+type: docker
+category: web
+owasp: A05
+difficulty: medium
+points: 200
+required: true
+
+description: |
+  A file server lets you download documentation files.
+  The download endpoint takes a filename as a parameter.
+  The flag is stored at /flag.txt on the server.
+  Can you read it?
+
+flag_type: dynamic
+
+docker:
+  image: ctf/web-traversal-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "Look at the URL when you download a file. What parameter controls which file is served?"
+  - cost: 50
+    text: "Try using ../ to navigate up directories from the files folder."
+  - cost: 70
+    text: "The payload is: ../../flag.txt"
