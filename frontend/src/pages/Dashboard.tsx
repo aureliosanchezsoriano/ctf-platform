@@ -115,12 +115,20 @@ export const DashboardPage = () => {
             <span className="font-semibold text-white">CTF Platform</span>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/scoreboard')}
-              className="text-gray-400 hover:text-white text-sm transition-colors"
-            >
-              Scoreboard
-            </button>
+	  <button
+	    onClick={() => navigate('/scoreboard')}
+	    className="text-gray-400 hover:text-white text-sm transition-colors"
+	  >
+	    Scoreboard
+	  </button>
+	  {(user?.role === 'teacher' || user?.role === 'admin') && (
+	    <button
+	      onClick={() => navigate('/admin')}
+	      className="text-indigo-400 hover:text-indigo-300 text-sm transition-colors"
+	    >
+	      Admin
+	    </button>
+	  )}
             <span className="text-gray-600 text-sm">{user?.username}</span>
             <button
               onClick={handleLogout}

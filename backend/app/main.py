@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.services.challenge_loader import sync_challenges
-from app.routers import auth, challenges, scoreboard, hints
+from app.routers import auth, challenges, scoreboard, hints, admin
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -47,6 +47,7 @@ app.include_router(auth.router)
 app.include_router(challenges.router)
 app.include_router(scoreboard.router)
 app.include_router(hints.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")

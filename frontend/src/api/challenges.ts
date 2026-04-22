@@ -15,3 +15,13 @@ export const submitFlag = async (slug: string, flag: string): Promise<FlagResult
   const res = await client.post<FlagResult>(`/challenges/${slug}/submit`, { flag })
   return res.data
 }
+
+export const activateChallenge = async (slug: string) => {
+  const res = await client.patch(`/challenges/${slug}/activate`)
+  return res.data
+}
+
+export const deactivateChallenge = async (slug: string) => {
+  const res = await client.patch(`/challenges/${slug}/deactivate`)
+  return res.data
+}
