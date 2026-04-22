@@ -1,0 +1,31 @@
+id: web-idor-01
+name: "IDOR — Access another user's record"
+type: docker
+category: web
+owasp: A01
+difficulty: easy
+points: 150
+required: true
+
+description: |
+  A student portal lets you view your own academic record.
+  You are logged in as student with ID 5.
+  The admin's record is somewhere in the system.
+  Find it.
+
+flag_type: dynamic
+
+docker:
+  image: ctf/web-idor-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "Look at the URL when you view your own record."
+  - cost: 40
+    text: "Try changing the ID in the URL to other numbers."
+  - cost: 60
+    text: "The admin record has ID 1."
