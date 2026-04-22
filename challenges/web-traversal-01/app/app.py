@@ -61,7 +61,7 @@ def download():
     except FileNotFoundError:
         return f"""<!DOCTYPE html><html><head><title>Not Found</title>{STYLE}</head><body>
         <nav><strong style="color:#e94560">DocServer</strong><a href="/">Files</a></nav>
-        <div class="box"><p style="color:#e94560">File not found: {filename}</p></div>
+        <div class="box"><p style="color:#e94560">File not found: {filepath}</p></div>
         </body></html>""", 404
     except Exception as e:
         return f"""<!DOCTYPE html><html><head><title>Error</title>{STYLE}</head><body>
