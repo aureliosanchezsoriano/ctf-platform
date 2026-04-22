@@ -4,9 +4,7 @@ from flask import Flask, request, render_template_string
 
 app = Flask(__name__)
 
-# Flag is injected at container startup via environment variable
 FLAG = os.environ.get("CTF_FLAG", "CTF{placeholder}")
-
 DB_PATH = "/tmp/challenge.db"
 
 LOGIN_HTML = """
@@ -17,11 +15,11 @@ LOGIN_HTML = """
     <style>
         body { font-family: monospace; background: #1a1a2e; color: #eee; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .box { background: #16213e; padding: 2rem; border-radius: 8px; width: 320px; }
-        h2 { color: #0f3460; text-align: center; color: #e94560; }
+        h2 { text-align: center; color: #e94560; }
         input { width: 100%; padding: 8px; margin: 8px 0; background: #0f3460; border: 1px solid #e94560; color: #eee; border-radius: 4px; box-sizing: border-box; }
         button { width: 100%; padding: 10px; background: #e94560; border: none; color: white; border-radius: 4px; cursor: pointer; font-size: 1rem; }
         .error { color: #e94560; font-size: 0.85rem; margin-top: 8px; }
-        .flag { color: #0f0; font-size: 1.1rem; word-break: break-all; margin-top: 1rem; }
+        .flag { color: #0f0; font-size: 1.1rem; word-break: break-all; margin-top: 1rem; background: #0a0a0a; padding: 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -44,7 +42,8 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)")
     conn.execute("DELETE FROM users")
-    conn.execute("INSERT INTO users VALUES (1, 'admin', 'sup3rs3cr3t!')")
+    # Password is hashed — cannot be bypassed directly
+    conn.execute("INSERT INTO users VALUES (1, 'admin', 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3')")
     conn.commit()
     conn.close()
 
@@ -59,8 +58,9 @@ def index():
         password = request.form.get("password", "")
 
         conn = sqlite3.connect(DB_PATH)
-        # INTENTIONALLY VULNERABLE — do not use in production
-        query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+        # INTENTIONALLY VULNERABLE in username field only
+        # Password is validated separately after query
+        query = f"SELECT * FROM users WHERE username='{username}'"
         try:
             cursor = conn.execute(query)
             user = cursor.fetchone()

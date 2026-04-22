@@ -229,3 +229,86 @@ async def deactivate_challenge(slug: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Challenge not found")
     challenge.is_active = False
     return {"slug": slug, "is_active": False}
+
+
+# ── Container management ──────────────────────────────────────────────────────
+
+class ContainerInfo(BaseModel):
+    running: bool
+    url: str | None = None
+    container_id: str | None = None
+    status: str
+
+
+@router.post("/{slug}/start", response_model=ContainerInfo)
+async def start_challenge_container(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.orchestrator import start_challenge, get_docker_client
+    import docker.errors
+
+    result = await db.execute(
+        select(Challenge).where(Challenge.slug == slug, Challenge.is_active == True)
+    )
+    challenge = result.scalar_one_or_none()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    if challenge.type != "docker":
+        raise HTTPException(status_code=400, detail="This challenge does not use a container")
+
+    try:
+        info = start_challenge(
+            user_id=str(current_user.id),
+            challenge_slug=slug,
+            docker_config=challenge.docker_config,
+        )
+        return ContainerInfo(
+            running=True,
+            url=info["url"],
+            container_id=info["container_id"],
+            status=info["status"],
+        )
+    except Exception as e:
+        logger.error(f"Failed to start container: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start container: {str(e)}")
+
+
+@router.delete("/{slug}/stop", response_model=ContainerInfo)
+async def stop_challenge_container(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.orchestrator import stop_challenge
+
+    result = await db.execute(
+        select(Challenge).where(Challenge.slug == slug)
+    )
+    challenge = result.scalar_one_or_none()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    stopped = stop_challenge(str(current_user.id), slug)
+    return ContainerInfo(
+        running=False,
+        status="stopped" if stopped else "not_found",
+    )
+
+
+@router.get("/{slug}/status", response_model=ContainerInfo)
+async def challenge_container_status(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+):
+    from app.services.orchestrator import get_container_status
+
+    info = get_container_status(str(current_user.id), slug)
+    return ContainerInfo(
+        running=info["running"],
+        url=info.get("url"),
+        container_id=info.get("container_id"),
+        status=info["status"],
+    )
