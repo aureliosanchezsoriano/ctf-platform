@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, hash_password
 from app.models.user import User, UserRole, AuthProvider
-from app.schemas.auth import LoginRequest, TokenResponse, UserCreate, UserResponse
+from app.schemas.auth import LoginRequest, TokenResponse, UserCreate, UserResponse, ProfileUpdate
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -87,6 +87,51 @@ from app.core.auth import get_current_user
 
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
+    return UserResponse(
+        id=str(current_user.id),
+        username=current_user.username,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role,
+        class_name=current_user.class_name,
+    )
+
+
+
+
+
+@router.patch("/profile", response_model=UserResponse)
+async def update_profile(
+    payload: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if payload.new_password:
+        if not payload.current_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password required to set a new one",
+            )
+        if not verify_password(payload.current_password, current_user.hashed_password or ""):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect",
+            )
+        current_user.hashed_password = hash_password(payload.new_password)
+
+    if payload.full_name:
+        current_user.full_name = payload.full_name
+
+    if payload.email:
+        existing = await db.execute(
+            select(User).where(User.email == payload.email, User.id != current_user.id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=409, detail="Email already in use")
+        current_user.email = payload.email
+
+    await db.flush()
+
     return UserResponse(
         id=str(current_user.id),
         username=current_user.username,

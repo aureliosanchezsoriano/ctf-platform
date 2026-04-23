@@ -110,6 +110,8 @@ export const AdminDashboard = () => {
   const [newStudent, setNewStudent] = useState<CreateStudentRequest>({
     username: '', full_name: '', email: '', password: '', class_name: ''
   })
+  const [search, setSearch] = useState('')
+  const [filterClass, setFilterClass] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: students } = useQuery({ queryKey: ['admin-students'], queryFn: getStudents, refetchInterval: 15_000 })
@@ -178,6 +180,16 @@ export const AdminDashboard = () => {
     { id: 'import', label: 'Import / Export' },
   ] as const
 
+  const classes = [...new Set(students?.map(s => s.class_name).filter(Boolean) ?? [])] as string[]
+
+  const filteredStudents = students?.filter(s => {
+    const matchSearch = !search ||
+      s.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      s.username.toLowerCase().includes(search.toLowerCase())
+    const matchClass = !filterClass || s.class_name === filterClass
+    return matchSearch && matchClass
+})
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <nav className="border-b border-gray-800 px-6 py-3">
@@ -235,15 +247,35 @@ export const AdminDashboard = () => {
 
         {activeTab === 'students' && (
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-400 text-sm">{students?.length ?? 0} students</span>
-              <button
-                onClick={() => setShowAddStudent(!showAddStudent)}
+	  <div className="flex flex-wrap gap-3 items-center justify-between">
+  <div className="flex gap-2 flex-1">
+    <input
+      type="text"
+      placeholder="Search by name or username..."
+      value={search}
+      onChange={e => setSearch(e.target.value)}
+      className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500 min-w-0"
+    />
+    <select
+      value={filterClass}
+      onChange={e => setFilterClass(e.target.value)}
+      className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+    >
+      <option value="">All classes</option>
+      {classes.map(c => (
+        <option key={c} value={c}>{c}</option>
+      ))}
+    </select>
+  </div>
+  <button
+    onClick={() => setShowAddStudent(!showAddStudent)}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               >
                 {showAddStudent ? 'Cancel' : 'Add student'}
               </button>
             </div>
+
+            <p className="text-gray-500 text-xs">{filteredStudents?.length ?? 0} of {students?.length ?? 0} students</p>
 
             {showAddStudent && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -312,7 +344,7 @@ export const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {students?.map(student => (
+                  {filteredStudents?.map(student => (
                     <tr key={student.id} className="border-b border-gray-800 last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium text-white">{student.full_name}</div>

@@ -129,7 +129,12 @@ export const DashboardPage = () => {
 	      Admin
 	    </button>
 	  )}
-            <span className="text-gray-600 text-sm">{user?.username}</span>
+	    <button
+	      onClick={() => navigate('/profile')}
+	      className="text-gray-400 hover:text-white text-sm transition-colors"
+	    >
+    	      {user?.username}
+	    </button>
             <button
               onClick={handleLogout}
               className="text-gray-500 hover:text-red-400 text-sm transition-colors"

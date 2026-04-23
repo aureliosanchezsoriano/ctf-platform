@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { LoginPage } from './pages/Login'
 import { DashboardPage } from './pages/Dashboard'
 import { ChallengePage } from './pages/Challenge'
+import { ProfilePage } from './pages/Profile'
 import { ScoreboardPage } from './pages/Scoreboard'
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { useAuthStore } from './store/authStore'
@@ -45,6 +46,9 @@ function AppRoutes() {
             <ChallengePage />
           </ProtectedRoute>
         } />
+	< Route path="/profile" element={
+	  <ProtectedRoute teacherRedirect><ProfilePage /></ProtectedRoute>
+	} />
         <Route path="/scoreboard" element={
           <ProtectedRoute teacherRedirect>
             <ScoreboardPage />
