@@ -1,0 +1,31 @@
+id: api-mass-assignment-01
+name: "Mass Assignment — Escalate via API"
+type: docker
+category: web
+owasp: A01
+difficulty: hard
+points: 300
+required: false
+
+description: |
+  A REST API lets you update your own profile.
+  You are registered as a regular user.
+  The API does not filter which fields can be updated.
+  Find a way to escalate your privileges to admin and access the admin endpoint.
+
+flag_type: dynamic
+
+docker:
+  image: ctf/api-mass-assignment-01
+  port: 5000
+  ttl: 7200
+  cpu: "0.5"
+  memory: "128m"
+
+hints:
+  - cost: 0
+    text: "Register an account and call PUT /api/users/me to update your profile. What fields does the API accept?"
+  - cost: 60
+    text: "Try including a 'role' field in the PUT request body. The API might not filter it out."
+  - cost: 80
+    text: "Send: {\"bio\": \"hello\", \"role\": \"admin\"} and then call GET /api/admin/secret"
