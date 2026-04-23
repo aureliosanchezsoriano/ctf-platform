@@ -7,6 +7,7 @@ An educational Capture The Flag platform designed for ASIR (Network Systems Admi
 The platform provides a gamified learning environment where students solve security challenges based on the OWASP Top 10. Each challenge runs in an isolated Docker container with a unique flag per student, preventing answer sharing. Teachers manage the session through a dedicated admin panel.
 
 ## Architecture
+
 ctf-platform/
 ├── backend/        # FastAPI (Python) — REST API
 ├── frontend/       # React + Vite + TypeScript — SPA
@@ -60,6 +61,7 @@ ctf-platform/
 Challenges are self-contained directories under `challenges/`. Adding a new challenge requires no code changes — the backend discovers and registers challenges automatically on startup.
 
 ### Challenge structure
+
 challenges/
 └── web-sqli-01/
 ├── challenge.yml    # Metadata and configuration
@@ -127,7 +129,7 @@ hints:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/ctf-platform.git
+git clone https://github.com/aureliosanchezsoriano/ctf-platform.git
 cd ctf-platform
 
 # Copy environment config
