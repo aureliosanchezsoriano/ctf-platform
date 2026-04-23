@@ -19,16 +19,16 @@ export const LoginPage = () => {
     try {
       const tokenData = await login({ username, password })
       localStorage.setItem('token', tokenData.access_token)
-      const user = await getMe()
-      setAuth(tokenData.access_token, user)
-      navigate('/dashboard')
+      const u = await getMe(tokenData.access_token)
+      setAuth(tokenData.access_token, u)
+      const dest = (u.role === 'teacher' || u.role === 'admin') ? '/admin' : '/dashboard'
+      navigate(dest)
     } catch (err: any) {
       setError(err.response?.data?.detail ?? 'Login failed')
     } finally {
       setLoading(false)
     }
   }
-
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">

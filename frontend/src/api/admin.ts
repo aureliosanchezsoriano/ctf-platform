@@ -76,3 +76,43 @@ export const exportResults = () => {
       URL.revokeObjectURL(blobUrl)
     })
 }
+
+export interface AdminChallenge {
+  id: string
+  slug: string
+  name: string
+  category: string
+  difficulty: string
+  points: number
+  is_active: boolean
+  is_required: boolean
+  type: string
+}
+
+export const getAdminChallenges = async (): Promise<AdminChallenge[]> => {
+  const res = await client.get<AdminChallenge[]>('/admin/challenges')
+  return res.data
+}
+
+export const resetStudentProgress = async (userId: string): Promise<{ reset: boolean }> => {
+  const res = await client.delete(`/admin/students/${userId}/progress`)
+  return res.data
+}
+
+export const deleteStudent = async (userId: string): Promise<{ deleted: boolean; username: string }> => {
+  const res = await client.delete(`/admin/students/${userId}`)
+  return res.data
+}
+
+export interface CreateStudentRequest {
+  username: string
+  full_name: string
+  email: string
+  password: string
+  class_name?: string
+}
+
+export const createStudent = async (data: CreateStudentRequest): Promise<{ id: string; username: string }> => {
+  const res = await client.post('/admin/students', data)
+  return res.data
+}

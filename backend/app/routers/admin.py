@@ -259,3 +259,120 @@ async def import_students(
     content = await file.read()
     result = await import_students_from_excel(content, db, default_class=class_name)
     return ImportResult(**result)
+
+
+@router.get("/challenges")
+async def list_all_challenges(
+    current_user: User = Depends(get_current_teacher),
+    db: AsyncSession = Depends(get_db),
+):
+    """List ALL challenges including inactive ones — for the admin panel."""
+    result = await db.execute(
+        select(Challenge).order_by(Challenge.points.asc(), Challenge.slug.asc())
+    )
+    challenges = result.scalars().all()
+    return [
+        {
+            "id": str(c.id),
+            "slug": c.slug,
+            "name": c.name,
+            "category": c.category,
+            "difficulty": c.difficulty,
+            "points": c.points,
+            "is_active": c.is_active,
+            "is_required": c.is_required,
+            "type": c.type,
+        }
+        for c in challenges
+    ]
+
+
+@router.delete("/students/{user_id}/progress")
+async def reset_student_progress(
+    user_id: str,
+    current_user: User = Depends(get_current_teacher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset all attempts for a student — wipes points and solved challenges."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    from sqlalchemy import delete as sql_delete
+    await db.execute(
+      sql_delete(Attempt).where(Attempt.user_id == user_id)
+    )
+
+    await db.commit()
+    logger.info(f"Progress reset for user {student.username} by {current_user.username}")
+    return {"id": user_id, "username": student.username, "reset": True}
+
+
+@router.delete("/students/{user_id}")
+async def delete_student(
+    user_id: str,
+    current_user: User = Depends(get_current_teacher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete a student account and all their data."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    if student.role != UserRole.student:
+        raise HTTPException(status_code=400, detail="Can only delete student accounts")
+
+    # Stop any running containers
+    stop_all_for_user(user_id)
+
+    await db.delete(student)
+    await db.commit()
+    logger.info(f"Student {student.username} deleted by {current_user.username}")
+    return {"deleted": True, "username": student.username}
+
+
+class CreateStudentRequest(BaseModel):
+    username: str
+    full_name: str
+    email: str
+    password: str
+    class_name: str | None = None
+
+
+@router.post("/students", response_model=dict)
+async def create_student(
+    payload: CreateStudentRequest,
+    current_user: User = Depends(get_current_teacher),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a single student account."""
+    existing = await db.execute(
+        select(User).where(
+            (User.username == payload.username) | (User.email == payload.email)
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Username or email already exists")
+
+    student = User(
+        username=payload.username,
+        email=payload.email,
+        full_name=payload.full_name,
+        hashed_password=hash_password(payload.password),
+        role=UserRole.student,
+        auth_provider=AuthProvider.local,
+        class_name=payload.class_name,
+        is_active=True,
+    )
+    db.add(student)
+    await db.flush()
+    await db.commit()
+
+    logger.info(f"Student {payload.username} created by {current_user.username}")
+    return {
+        "id": str(student.id),
+        "username": student.username,
+        "full_name": student.full_name,
+        "class_name": student.class_name,
+    }

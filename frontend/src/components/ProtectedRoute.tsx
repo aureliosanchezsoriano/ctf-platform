@@ -5,16 +5,23 @@ import type { UserRole } from '../api/types'
 interface Props {
   children: React.ReactNode
   requiredRole?: UserRole
+  teacherRedirect?: boolean  // if true, redirect teachers to /admin
 }
 
-export const ProtectedRoute = ({ children, requiredRole }: Props) => {
-  const { isAuthenticated, hasRole } = useAuthStore()
+export const ProtectedRoute = ({ children, requiredRole, teacherRedirect }: Props) => {
+  const { isAuthenticated, user } = useAuthStore()
 
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
 
-  if (requiredRole && !hasRole(requiredRole)) {
+  // Teachers and admins always go to /admin, never to student pages
+  if (teacherRedirect && (user?.role === 'teacher' || user?.role === 'admin')) {
+    return <Navigate to="/admin" replace />
+  }
+
+  // Students cannot access teacher pages
+  if (requiredRole && user?.role !== requiredRole && user?.role !== 'admin') {
     return <Navigate to="/dashboard" replace />
   }
 

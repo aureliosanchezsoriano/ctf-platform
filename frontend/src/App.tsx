@@ -16,10 +16,15 @@ const queryClient = new QueryClient({
   },
 })
 
+const RoleRedirect = () => {
+  const { user } = useAuthStore()
+  const dest = (user?.role === 'teacher' || user?.role === 'admin') ? '/admin' : '/dashboard'
+  return <Navigate to={dest} replace />
+}
+
 function AppRoutes() {
   const { token, user, setAuth, clearAuth } = useAuthStore()
 
-  // On app load, if we have a token but no user, fetch the user
   useEffect(() => {
     if (token && !user) {
       getMe().then(u => setAuth(token, u)).catch(() => clearAuth())
@@ -31,18 +36,26 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={
-          <ProtectedRoute><DashboardPage /></ProtectedRoute>
+          <ProtectedRoute teacherRedirect>
+            <DashboardPage />
+          </ProtectedRoute>
         } />
         <Route path="/challenges/:slug" element={
-          <ProtectedRoute><ChallengePage /></ProtectedRoute>
+          <ProtectedRoute teacherRedirect>
+            <ChallengePage />
+          </ProtectedRoute>
         } />
         <Route path="/scoreboard" element={
-          <ProtectedRoute><ScoreboardPage /></ProtectedRoute>
+          <ProtectedRoute teacherRedirect>
+            <ScoreboardPage />
+          </ProtectedRoute>
         } />
         <Route path="/admin" element={
-          <ProtectedRoute requiredRole="teacher"><AdminDashboard /></ProtectedRoute>
+          <ProtectedRoute requiredRole="teacher">
+            <AdminDashboard />
+          </ProtectedRoute>
         } />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<RoleRedirect />} />
       </Routes>
     </BrowserRouter>
   )

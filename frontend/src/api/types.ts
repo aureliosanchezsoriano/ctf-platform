@@ -37,6 +37,7 @@ export interface Challenge {
   owasp_ref: string | null
   points: number
   is_required: boolean
+  is_active: boolean
   flag_type: 'dynamic' | 'static'
   hints: Hint[]
   unlocks_after: string | null

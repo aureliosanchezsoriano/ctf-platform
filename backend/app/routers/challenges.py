@@ -34,6 +34,7 @@ class ChallengeResponse(BaseModel):
     owasp_ref: str | None
     points: int
     is_required: bool
+    is_active: bool
     flag_type: str
     hints: list[dict]
     unlocks_after: str | None
@@ -89,6 +90,7 @@ async def build_response(
         owasp_ref=challenge.owasp_ref,
         points=challenge.points,
         is_required=challenge.is_required,
+        is_active=challenge.is_active,
         flag_type=challenge.flag_type,
         hints=hints,
         unlocks_after=challenge.unlocks_after,
@@ -108,7 +110,7 @@ async def list_challenges(
     result = await db.execute(
         select(Challenge)
         .where(Challenge.is_active == True)
-        .order_by(Challenge.points.asc())
+        .order_by(Challenge.points.asc(), Challenge.slug.asc())
     )
     challenges = result.scalars().all()
 

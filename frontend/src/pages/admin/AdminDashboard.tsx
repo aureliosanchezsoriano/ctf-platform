@@ -4,11 +4,100 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../store/authStore'
 import {
   getStudents, getContainers, toggleStudent,
-  killStudentContainers, killAllContainers,
-  importStudents, exportResults,
+  killAllContainers, importStudents, exportResults,
+  getAdminChallenges, resetStudentProgress,
+  deleteStudent, createStudent,
+  type CreateStudentRequest,
 } from '../../api/admin'
-import { getChallenges } from '../../api/challenges'
 import { activateChallenge, deactivateChallenge } from '../../api/challenges'
+
+interface ChallengeRowProps {
+  challenge: { slug: string; name: string; category: string; points: number; is_active: boolean }
+  onActivate: (slug: string) => void
+  onDeactivate: (slug: string) => void
+}
+
+const ChallengeRow = ({ challenge, onActivate, onDeactivate }: ChallengeRowProps) => {
+  const [pending, setPending] = useState(false)
+
+  const handleToggle = async () => {
+    setPending(true)
+    try {
+      if (challenge.is_active) {
+        await onDeactivate(challenge.slug)
+      } else {
+        await onActivate(challenge.slug)
+      }
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <tr className="border-b border-gray-800 last:border-0">
+      <td className="px-4 py-3">
+        <div className="font-medium text-white">{challenge.name}</div>
+        <div className="text-gray-500 text-xs">{challenge.slug}</div>
+      </td>
+      <td className="px-4 py-3 text-gray-400">{challenge.category}</td>
+      <td className="px-4 py-3 text-center">
+        <span className={`text-xs px-2 py-0.5 rounded-full border ${
+          challenge.is_active
+            ? 'bg-green-950 text-green-400 border-green-900'
+            : 'bg-gray-800 text-gray-500 border-gray-700'
+        }`}>
+          {challenge.is_active ? 'active' : 'inactive'}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right text-white">{challenge.points}</td>
+      <td className="px-4 py-3 text-right">
+        <button
+          onClick={handleToggle}
+          disabled={pending}
+          className={`text-xs transition-colors disabled:opacity-50 ${
+            challenge.is_active
+              ? 'text-red-500 hover:text-red-400'
+              : 'text-green-500 hover:text-green-400'
+          }`}
+        >
+          {pending ? '...' : challenge.is_active ? 'Deactivate' : 'Activate'}
+        </button>
+      </td>
+    </tr>
+  )
+}
+
+interface ChallengesTabProps {
+  challenges: { slug: string; name: string; category: string; points: number; is_active: boolean }[]
+  onActivate: (slug: string) => void
+  onDeactivate: (slug: string) => void
+}
+
+const ChallengesTab = ({ challenges, onActivate, onDeactivate }: ChallengesTabProps) => (
+  <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-gray-800">
+          <th className="text-left text-gray-500 font-medium px-4 py-3">Challenge</th>
+          <th className="text-left text-gray-500 font-medium px-4 py-3">Category</th>
+          <th className="text-center text-gray-500 font-medium px-4 py-3">Status</th>
+          <th className="text-right text-gray-500 font-medium px-4 py-3">Points</th>
+          <th className="text-right text-gray-500 font-medium px-4 py-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {challenges.map(challenge => (
+          <ChallengeRow
+            key={challenge.slug}
+            challenge={challenge}
+            onActivate={onActivate}
+            onDeactivate={onDeactivate}
+          />
+        ))}
+      </tbody>
+    </table>
+  </div>
+)
 
 export const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -17,20 +106,19 @@ export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<'students' | 'challenges' | 'containers' | 'import'>('students')
   const [importClass, setImportClass] = useState('')
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null)
+  const [showAddStudent, setShowAddStudent] = useState(false)
+  const [newStudent, setNewStudent] = useState<CreateStudentRequest>({
+    username: '', full_name: '', email: '', password: '', class_name: ''
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: students } = useQuery({ queryKey: ['admin-students'], queryFn: getStudents, refetchInterval: 15_000 })
   const { data: containers } = useQuery({ queryKey: ['admin-containers'], queryFn: getContainers, refetchInterval: 10_000 })
-  const { data: challenges } = useQuery({ queryKey: ['challenges-admin'], queryFn: getChallenges })
+  const { data: challenges } = useQuery({ queryKey: ['challenges-admin'], queryFn: getAdminChallenges })
 
   const toggleMutation = useMutation({
     mutationFn: toggleStudent,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-students'] }),
-  })
-
-  const killStudentMutation = useMutation({
-    mutationFn: killStudentContainers,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-containers'] }),
   })
 
   const killAllMutation = useMutation({
@@ -46,6 +134,25 @@ export const AdminDashboard = () => {
   const deactivateMutation = useMutation({
     mutationFn: (slug: string) => deactivateChallenge(slug),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['challenges-admin'] }),
+  })
+
+  const resetProgressMutation = useMutation({
+    mutationFn: resetStudentProgress,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-students'] }),
+  })
+
+  const deleteStudentMutation = useMutation({
+    mutationFn: deleteStudent,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-students'] }),
+  })
+
+  const createStudentMutation = useMutation({
+    mutationFn: createStudent,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] })
+      setShowAddStudent(false)
+      setNewStudent({ username: '', full_name: '', email: '', password: '', class_name: '' })
+    },
   })
 
   const importMutation = useMutation({
@@ -91,14 +198,13 @@ export const AdminDashboard = () => {
 
       <div className="max-w-6xl mx-auto px-6 py-6">
 
-        {/* Stats row */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
             <div className="text-2xl font-bold text-white">{students?.length ?? 0}</div>
             <div className="text-gray-500 text-xs mt-1">students</div>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-            <div className="text-2xl font-bold text-white">{challenges?.filter(c => c.solved !== undefined).length ?? 0}</div>
+            <div className="text-2xl font-bold text-white">{challenges?.length ?? 0}</div>
             <div className="text-gray-500 text-xs mt-1">challenges</div>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
@@ -113,16 +219,13 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-400 hover:text-white'
+                activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               {tab.label}
@@ -130,119 +233,150 @@ export const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Students tab */}
         {activeTab === 'students' && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="text-left text-gray-500 font-medium px-4 py-3">Student</th>
-                  <th className="text-left text-gray-500 font-medium px-4 py-3">Class</th>
-                  <th className="text-center text-gray-500 font-medium px-4 py-3">Progress</th>
-                  <th className="text-right text-gray-500 font-medium px-4 py-3">Points</th>
-                  <th className="text-right text-gray-500 font-medium px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students?.map(student => (
-                  <tr key={student.id} className="border-b border-gray-800 last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-white">{student.full_name}</div>
-                      <div className="text-gray-500 text-xs">{student.username}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">{student.class_name ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 justify-center">
-                        <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-indigo-500 rounded-full"
-                            style={{ width: `${(student.solved_count / Math.max(student.total_challenges, 1)) * 100}%` }}
-                          />
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400 text-sm">{students?.length ?? 0} students</span>
+              <button
+                onClick={() => setShowAddStudent(!showAddStudent)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              >
+                {showAddStudent ? 'Cancel' : 'Add student'}
+              </button>
+            </div>
+
+            {showAddStudent && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <h3 className="font-medium text-white mb-4">New student</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Username"
+                    value={newStudent.username}
+                    onChange={e => setNewStudent(s => ({ ...s, username: e.target.value }))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Full name"
+                    value={newStudent.full_name}
+                    onChange={e => setNewStudent(s => ({ ...s, full_name: e.target.value }))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={newStudent.email}
+                    onChange={e => setNewStudent(s => ({ ...s, email: e.target.value }))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={newStudent.password}
+                    onChange={e => setNewStudent(s => ({ ...s, password: e.target.value }))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Class name (optional)"
+                    value={newStudent.class_name ?? ''}
+                    onChange={e => setNewStudent(s => ({ ...s, class_name: e.target.value }))}
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    onClick={() => createStudentMutation.mutate(newStudent)}
+                    disabled={createStudentMutation.isPending || !newStudent.username || !newStudent.email || !newStudent.password || !newStudent.full_name}
+                    className="bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+                  >
+                    {createStudentMutation.isPending ? 'Creating...' : 'Create student'}
+                  </button>
+                </div>
+                {createStudentMutation.isError && (
+                  <p className="text-red-400 text-xs mt-2">
+                    {(createStudentMutation.error as any)?.response?.data?.detail ?? 'Error creating student'}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-800">
+                    <th className="text-left text-gray-500 font-medium px-4 py-3">Student</th>
+                    <th className="text-left text-gray-500 font-medium px-4 py-3">Class</th>
+                    <th className="text-center text-gray-500 font-medium px-4 py-3">Progress</th>
+                    <th className="text-right text-gray-500 font-medium px-4 py-3">Points</th>
+                    <th className="text-right text-gray-500 font-medium px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students?.map(student => (
+                    <tr key={student.id} className="border-b border-gray-800 last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-white">{student.full_name}</div>
+                        <div className="text-gray-500 text-xs">{student.username}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400">{student.class_name ?? '-'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 justify-center">
+                          <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-indigo-500 rounded-full"
+                              style={{ width: `${(student.solved_count / Math.max(student.total_challenges, 1)) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-gray-400 text-xs">{student.solved_count}/{student.total_challenges}</span>
                         </div>
-                        <span className="text-gray-400 text-xs">{student.solved_count}/{student.total_challenges}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-white">{student.points}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => killStudentMutation.mutate(student.id)}
-                          className="text-xs text-yellow-600 hover:text-yellow-400 transition-colors"
-                          title="Kill containers"
-                        >
-                          Reset
-                        </button>
-                        <button
-                          onClick={() => toggleMutation.mutate(student.id)}
-                          className={`text-xs transition-colors ${student.is_active ? 'text-red-500 hover:text-red-400' : 'text-green-500 hover:text-green-400'}`}
-                        >
-                          {student.is_active ? 'Disable' : 'Enable'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-white">{student.points}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-3 justify-end">
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Reset all progress for ${student.full_name}?`)) {
+                                resetProgressMutation.mutate(student.id)
+                              }
+                            }}
+                            className="text-xs text-yellow-600 hover:text-yellow-400 transition-colors"
+                          >
+                            Reset
+                          </button>
+                          <button
+                            onClick={() => toggleMutation.mutate(student.id)}
+                            className={`text-xs transition-colors ${student.is_active ? 'text-orange-500 hover:text-orange-400' : 'text-green-500 hover:text-green-400'}`}
+                          >
+                            {student.is_active ? 'Disable' : 'Enable'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Permanently delete ${student.full_name}? This cannot be undone.`)) {
+                                deleteStudentMutation.mutate(student.id)
+                              }
+                            }}
+                            className="text-xs text-red-500 hover:text-red-400 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* Challenges tab */}
         {activeTab === 'challenges' && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="text-left text-gray-500 font-medium px-4 py-3">Challenge</th>
-                  <th className="text-left text-gray-500 font-medium px-4 py-3">Category</th>
-                  <th className="text-center text-gray-500 font-medium px-4 py-3">Status</th>
-                  <th className="text-right text-gray-500 font-medium px-4 py-3">Points</th>
-                  <th className="text-right text-gray-500 font-medium px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {challenges?.map(challenge => (
-                  <tr key={challenge.slug} className="border-b border-gray-800 last:border-0">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-white">{challenge.name}</div>
-                      <div className="text-gray-500 text-xs">{challenge.slug}</div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">{challenge.category}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                        challenge.locked
-                          ? 'bg-gray-800 text-gray-500 border-gray-700'
-                          : 'bg-green-950 text-green-400 border-green-900'
-                      }`}>
-                        {challenge.locked ? 'inactive' : 'active'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-white">{challenge.points}</td>
-                    <td className="px-4 py-3 text-right">
-                      {challenge.locked ? (
-                        <button
-                          onClick={() => activateMutation.mutate(challenge.slug)}
-                          className="text-xs text-green-500 hover:text-green-400 transition-colors"
-                        >
-                          Activate
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => deactivateMutation.mutate(challenge.slug)}
-                          className="text-xs text-red-500 hover:text-red-400 transition-colors"
-                        >
-                          Deactivate
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ChallengesTab
+            challenges={challenges ?? []}
+            onActivate={(slug) => activateMutation.mutate(slug)}
+            onDeactivate={(slug) => deactivateMutation.mutate(slug)}
+          />
         )}
 
-        {/* Containers tab */}
         {activeTab === 'containers' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -256,7 +390,7 @@ export const AdminDashboard = () => {
               </button>
             </div>
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              {containers?.length === 0 ? (
+              {!containers?.length ? (
                 <div className="text-gray-500 text-sm text-center py-8">No containers running</div>
               ) : (
                 <table className="w-full text-sm">
@@ -290,13 +424,12 @@ export const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Import / Export tab */}
         {activeTab === 'import' && (
           <div className="grid grid-cols-2 gap-6">
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="font-medium text-white mb-1">Import students from Excel</h3>
               <p className="text-gray-500 text-xs mb-4">
-                Excel columns required: username, full_name, email, password, class_name (optional)
+                Required columns: username, full_name, email, password, class_name (optional)
               </p>
               <div className="space-y-3">
                 <input
