@@ -111,6 +111,8 @@ export const ChallengePage = () => {
 
   const running = containerStatus?.running ?? false
 
+  const fileDownloadUrl = `/api/challenges/${slug}/files`
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <nav className="border-b border-gray-800 px-6 py-3">
@@ -160,6 +162,38 @@ export const ChallengePage = () => {
           <h2 className="text-sm font-medium text-gray-400 mb-3">Description</h2>
           <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{challenge.description}</p>
         </div>
+
+        {challenge.type === 'file' && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-5">
+            <h2 className="text-sm font-medium text-gray-400 mb-3">Challenge Files</h2>
+            <p className="text-gray-400 text-sm mb-3">Download the challenge files and work on them locally.</p>
+            <button
+              onClick={() => {
+                const token = localStorage.getItem('token')
+                fetch(`/api/challenges/${slug}/files`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                })
+                  .then(r => {
+                    const disposition = r.headers.get('content-disposition') ?? ''
+                    const match = disposition.match(/filename="([^"]+)"/)
+                    const filename = match ? match[1] : 'challenge.pcap'
+                    return r.blob().then(blob => ({ blob, filename }))
+                  })
+                  .then(({ blob, filename }) => {
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = filename
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  })
+              }}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            >
+              Download files
+            </button>
+          </div>
+        )}
 
         {challenge.type === 'docker' && (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-5">

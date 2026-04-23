@@ -1,0 +1,29 @@
+id: forense-pcap-01
+name: "Traffic analysis — Find the credentials"
+type: file
+category: forensics
+owasp: A02
+difficulty: medium
+points: 200
+required: false
+
+description: |
+  A network capture was taken during a security incident on the school network.
+  Someone was transmitting credentials in cleartext.
+  Analyze the traffic and find the FTP password.
+  The flag is the FTP password wrapped in CTF{}.
+
+flag_type: static
+flag_value: "CTF{s3cur3_ftp_2024}"
+
+file:
+  path: files/
+  filename: captura.pcap
+
+hints:
+  - cost: 0
+    text: "Open the file in Wireshark. Filter by protocol to narrow down the traffic."
+  - cost: 40
+    text: "Filter for FTP traffic: type 'ftp' in the Wireshark filter bar."
+  - cost: 60
+    text: "Look for the PASS command in the FTP stream. The password is the flag."

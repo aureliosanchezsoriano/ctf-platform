@@ -312,3 +312,42 @@ async def challenge_container_status(
         container_id=info.get("container_id"),
         status=info["status"],
     )
+
+
+# ── File download ─────────────────────────────────────────────────────────────
+
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+CHALLENGES_DIR = Path(__file__).resolve().parents[3] / "challenges"
+
+
+@router.get("/{slug}/files")
+async def download_challenge_files(
+    slug: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Challenge).where(Challenge.slug == slug, Challenge.is_active == True)
+    )
+    challenge = result.scalar_one_or_none()
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    if challenge.type != "file":
+        raise HTTPException(status_code=400, detail="This challenge does not have files")
+
+    file_config = challenge.file_config or {}
+    filename = file_config.get("filename", "challenge.zip")
+    files_path = CHALLENGES_DIR / slug / file_config.get("path", "files/").rstrip("/")
+    target = files_path / filename
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+
+    return FileResponse(
+        path=str(target),
+        filename=target.name,
+        media_type="application/octet-stream",
+    )
