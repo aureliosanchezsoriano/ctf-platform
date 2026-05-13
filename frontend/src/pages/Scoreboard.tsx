@@ -1,3 +1,4 @@
+import { FontSizeControl } from '../components/FontSizeControl'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
@@ -28,6 +29,7 @@ export const ScoreboardPage = () => {
           <span className="text-gray-700">|</span>
           <span className="text-gray-400 text-sm">🚩 CTF Platform</span>
         </div>
+	<FontSizeControl />
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-8">

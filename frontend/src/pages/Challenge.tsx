@@ -1,3 +1,4 @@
+import { FontSizeControl } from '../components/FontSizeControl'
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -123,6 +124,7 @@ export const ChallengePage = () => {
           <span className="text-gray-700">|</span>
           <span className="text-gray-400 text-sm">CTF Platform</span>
         </div>
+	<FontSizeControl />
       </nav>
 
       <div className="max-w-3xl mx-auto px-6 py-8">

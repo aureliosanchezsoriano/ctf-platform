@@ -1,3 +1,4 @@
+import { FontSizeControl } from '../components/FontSizeControl'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
@@ -115,6 +116,7 @@ export const DashboardPage = () => {
             <span className="font-semibold text-white">CTF Platform</span>
           </div>
           <div className="flex items-center gap-4">
+	  <FontSizeControl />
 	  <button
 	    onClick={() => navigate('/scoreboard')}
 	    className="text-gray-400 hover:text-white text-sm transition-colors"
